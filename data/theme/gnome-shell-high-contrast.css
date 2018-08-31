@@ -688,6 +688,9 @@ StScrollBar {
       -st-icon-style: symbolic;
       margin-left: 4px;
       margin-right: 4px; }
+    #panel .panel-button .panel-logo-icon {
+      padding-right: .4em;
+      icon-size: 1em; }
     #panel .panel-button .system-status-icon,
     #panel .panel-button .app-menu-icon > StIcon,
     #panel .panel-button .popup-menu-arrow {
