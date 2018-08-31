@@ -200,6 +200,10 @@ var ShellUserVerifier = new Lang.Class({
         if (this._userVerifier) {
             this._userVerifier.run_dispose();
             this._userVerifier = null;
+            if (this._userVerifierChoiceList) {
+                this._userVerifierChoiceList.run_dispose();
+                this._userVerifierChoiceList = null;
+            }
         }
     },
 
@@ -225,6 +229,10 @@ var ShellUserVerifier = new Lang.Class({
 
         this._oVirtCredentialsManager.disconnect(this._oVirtUserAuthenticatedId);
         this._oVirtCredentialsManager = null;
+    },
+
+    selectChoice: function(serviceName, key) {
+        this._userVerifierChoiceList.call_select_choice(serviceName, key, this._cancellable, null);
     },
 
     answerQuery: function(serviceName, answer) {
@@ -368,6 +376,11 @@ var ShellUserVerifier = new Lang.Class({
             return;
         }
 
+        if (client.get_user_verifier_choice_list)
+            this._userVerifierChoiceList = client.get_user_verifier_choice_list();
+        else
+            this._userVerifierChoiceList = null;
+
         this.reauthenticating = true;
         this._connectSignals();
         this._beginVerification();
@@ -385,6 +398,11 @@ var ShellUserVerifier = new Lang.Class({
             return;
         }
 
+        if (client.get_user_verifier_choice_list)
+            this._userVerifierChoiceList = client.get_user_verifier_choice_list();
+        else
+            this._userVerifierChoiceList = null;
+
         this._connectSignals();
         this._beginVerification();
         this._hold.release();
@@ -398,6 +416,9 @@ var ShellUserVerifier = new Lang.Class({
         this._userVerifier.connect('conversation-stopped', Lang.bind(this, this._onConversationStopped));
         this._userVerifier.connect('reset', Lang.bind(this, this._onReset));
         this._userVerifier.connect('verification-complete', Lang.bind(this, this._onVerificationComplete));
+
+        if (this._userVerifierChoiceList)
+            this._userVerifierChoiceList.connect('choice-query', Lang.bind(this, this._onChoiceListQuery));
     },
 
     _getForegroundService: function() {
@@ -472,6 +493,13 @@ var ShellUserVerifier = new Lang.Class({
 
         if (this._userName && this._haveFingerprintReader && !this.serviceIsForeground(FINGERPRINT_SERVICE_NAME))
             this._startService(FINGERPRINT_SERVICE_NAME);
+    },
+
+    _onChoiceListQuery: function(client, serviceName, promptMessage, list) {
+        if (!this.serviceIsForeground(serviceName))
+            return;
+
+        this.emit('show-choice-list', serviceName, promptMessage, list.deep_unpack());
     },
 
     _onInfo: function(client, serviceName, info) {

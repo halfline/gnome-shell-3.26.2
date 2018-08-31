@@ -9,6 +9,7 @@ const Signals = imports.signals;
 const St = imports.gi.St;
 
 const Animation = imports.ui.animation;
+const AuthList = imports.gdm.authList;
 const Batch = imports.gdm.batch;
 const GdmUtil = imports.gdm.util;
 const Meta = imports.gi.Meta;
@@ -61,6 +62,7 @@ var AuthPrompt = new Lang.Class({
 
         this._userVerifier.connect('ask-question', Lang.bind(this, this._onAskQuestion));
         this._userVerifier.connect('show-message', Lang.bind(this, this._onShowMessage));
+        this._userVerifier.connect('show-choice-list', Lang.bind(this, this._onShowChoiceList));
         this._userVerifier.connect('verification-failed', Lang.bind(this, this._onVerificationFailed));
         this._userVerifier.connect('verification-complete', Lang.bind(this, this._onVerificationComplete));
         this._userVerifier.connect('reset', Lang.bind(this, this._onReset));
@@ -124,6 +126,28 @@ var AuthPrompt = new Lang.Class({
                                                  scale_x: 0 });
 
         this.actor.add(this._timedLoginIndicator);
+
+        this._authList = new AuthList.AuthList();
+        this._authList.connect('activate', (list, key) => {
+            this._authList.actor.reactive = false;
+            Tweener.addTween(this._authList.actor,
+                             { opacity: 0,
+                               time: MESSAGE_FADE_OUT_ANIMATION_TIME,
+                               transition: 'easeOutQuad',
+                               onComplete: () => {
+                                   this._authList.clear();
+                                   this._authList.actor.hide();
+                                   this._userVerifier.selectChoice(this._queryingService, key);
+
+                               }
+                             });
+        });
+        this._authList.actor.hide();
+        this.actor.add(this._authList.actor,
+                       { expand: true,
+                         x_fill: true,
+                         y_fill: false,
+                         x_align: St.Align.START });
 
         this._message = new St.Label({ opacity: 0,
                                        styleClass: 'login-dialog-message' });
@@ -276,6 +300,21 @@ var AuthPrompt = new Lang.Class({
         this.emit('prompted');
     },
 
+    _onShowChoiceList: function(userVerifier, serviceName, promptMessage, choiceList) {
+        if (this._queryingService)
+            this.clear();
+
+        this._queryingService = serviceName;
+
+        if (this._preemptiveAnswer)
+            this._preemptiveAnswer = null;
+
+        this.nextButton.label = _("Next");
+        this.setChoiceList(promptMessage, choiceList);
+        this.updateSensitivity(true);
+        this.emit('prompted');
+    },
+
     _onOVirtUserAuthenticated: function() {
         if (this.verificationStatus != AuthPromptStatus.VERIFICATION_SUCCEEDED)
             this.reset();
@@ -404,6 +443,8 @@ var AuthPrompt = new Lang.Class({
     clear: function() {
         this._entry.text = '';
         this.stopSpinning();
+        this._authList.clear();
+        this._authList.actor.hide();
     },
 
     setPasswordChar: function(passwordChar) {
@@ -419,10 +460,40 @@ var AuthPrompt = new Lang.Class({
 
         this._label.set_text(question);
 
+        this._authList.actor.hide();
         this._label.show();
         this._entry.show();
 
         this._entry.grab_key_focus();
+    },
+
+    _fadeInChoiceList: function() {
+       this._authList.actor.opacity = 0;
+       this._authList.actor.show();
+       this._authList.actor.reactive = false;
+       Tweener.addTween(this._authList.actor,
+                        { opacity: 255,
+                          time: MESSAGE_FADE_OUT_ANIMATION_TIME,
+                          transition: 'easeOutQuad',
+                          onComplete: () => {
+                              this._authList.actor.reactive = true;
+                          }
+                        });
+    },
+
+    setChoiceList: function(promptMessage, choiceList) {
+        this._authList.clear();
+        this._authList.label.text = promptMessage;
+        for (let key in choiceList) {
+            let text = choiceList[key];
+            this._authList.addItem(key, text);
+        }
+
+        this._label.hide();
+        this._entry.hide();
+        if (this._message.text == "")
+            this._message.hide();
+        this._fadeInChoiceList();
     },
 
     getAnswer: function() {
@@ -460,6 +531,7 @@ var AuthPrompt = new Lang.Class({
         else
             this._message.remove_style_class_name('login-dialog-message-hint');
 
+        this._message.show();
         if (message) {
             Tweener.removeTweens(this._message);
             this._message.text = message;
@@ -475,7 +547,7 @@ var AuthPrompt = new Lang.Class({
     },
 
     updateSensitivity: function(sensitive) {
-        this._updateNextButtonSensitivity(sensitive && (this._entry.text.length > 0 || this.verificationStatus == AuthPromptStatus.VERIFYING));
+        this._updateNextButtonSensitivity(sensitive && !this._authList.actor.visible && (this._entry.text.length > 0 || this.verificationStatus == AuthPromptStatus.VERIFYING));
         this._entry.reactive = sensitive;
         this._entry.clutter_text.editable = sensitive;
     },

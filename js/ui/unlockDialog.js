@@ -51,7 +51,14 @@ var UnlockDialog = new Lang.Class({
                                              y_expand: true });
         this.actor.add_child(this._promptBox);
 
-        this._authPrompt = new AuthPrompt.AuthPrompt(new Gdm.Client(), AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
+        this._gdmClient = new Gdm.Client();
+
+        try {
+            this._gdmClient.set_enabled_extensions([Gdm.UserVerifierChoiceList.interface_info().name]);
+        } catch(e) {
+        }
+
+        this._authPrompt = new AuthPrompt.AuthPrompt(this._gdmClient, AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
         this._authPrompt.connect('failed', Lang.bind(this, this._fail));
         this._authPrompt.connect('cancelled', Lang.bind(this, this._fail));
         this._authPrompt.connect('reset', Lang.bind(this, this._onReset));
