@@ -134,7 +134,6 @@ var ShellUserVerifier = new Lang.Class({
         this._settings = new Gio.Settings({ schema_id: LOGIN_SCREEN_SCHEMA });
         this._settings.connect('changed',
                                Lang.bind(this, this._updateDefaultService));
-        this._updateDefaultService();
 
         this._fprintManager = Fprint.FprintManager();
         this._smartcardManager = SmartcardManager.getSmartcardManager();
@@ -145,6 +144,8 @@ var ShellUserVerifier = new Lang.Class({
         // after a user has been picked.
         this.smartcardDetected = false;
         this._checkForSmartcard();
+
+        this._updateDefaultService();
 
         this._smartcardInsertedId = this._smartcardManager.connect('smartcard-inserted',
                                                                    Lang.bind(this, this._checkForSmartcard));
@@ -335,6 +336,8 @@ var ShellUserVerifier = new Lang.Class({
             else if (this._preemptingService == SMARTCARD_SERVICE_NAME)
                 this._preemptingService = null;
 
+            this._updateDefaultService();
+
             this.emit('smartcard-status-changed');
         }
     },
@@ -413,7 +416,9 @@ var ShellUserVerifier = new Lang.Class({
     },
 
     _updateDefaultService: function() {
-        if (this._settings.get_boolean(PASSWORD_AUTHENTICATION_KEY))
+        if (this._smartcardManager.loggedInWithToken())
+            this._defaultService = SMARTCARD_SERVICE_NAME;
+        else if (this._settings.get_boolean(PASSWORD_AUTHENTICATION_KEY))
             this._defaultService = PASSWORD_SERVICE_NAME;
         else if (this._settings.get_boolean(SMARTCARD_AUTHENTICATION_KEY))
             this._defaultService = SMARTCARD_SERVICE_NAME;
