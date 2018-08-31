@@ -724,7 +724,13 @@ var ZoomRegion = new Lang.Class({
     },
 
     _updateFocus: function(caller, event) {
-        let component = event.source.get_component_iface();
+        let component;
+
+        if (typeof event.source.get_component_iface === 'function')
+            component = event.source.get_component_iface();
+        else if (typeof event.source.get_component === 'function')
+            component = event.source.get_component();
+
         if (!component || event.detail1 != 1)
             return;
         let extents;
@@ -741,7 +747,13 @@ var ZoomRegion = new Lang.Class({
     },
 
     _updateCaret: function(caller, event) {
-        let text = event.source.get_text_iface();
+        let text;
+
+        if (typeof event.source.get_text_iface === 'function')
+            text = event.source.get_text_iface();
+        else if (typeof event.source.get_text === 'function')
+            text = event.source.get_text();
+
         if (!text)
             return;
         let extents;
