@@ -14,8 +14,7 @@ endif
 EXTRA_DIST =		\
 	.project	\
 	.settings	\
-	autogen.sh	\
-	tools/check-for-missing.py
+	autogen.sh
 
 # These are files checked into Git that we don't want to distribute
 DIST_EXCLUDE =					\
@@ -25,9 +24,5 @@ DIST_EXCLUDE =					\
 	HACKING					\
 	MAINTAINERS				\
 	tools/build/*
-
-distcheck-hook:
-	@echo "Checking disted files against files in git"
-	@$(srcdir)/tools/check-for-missing.py $(srcdir) $(distdir) $(DIST_EXCLUDE)
 
 DISTCHECK_CONFIGURE_FLAGS = --enable-gtk-doc --enable-man
