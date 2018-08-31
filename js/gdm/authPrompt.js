@@ -2,6 +2,7 @@
 
 const Clutter = imports.gi.Clutter;
 const Gio = imports.gi.Gio;
+const GLib = imports.gi.GLib;
 const Lang = imports.lang;
 const Pango = imports.gi.Pango;
 const Signals = imports.signals;
@@ -119,6 +120,11 @@ var AuthPrompt = new Lang.Class({
 
         this._entry.grab_key_focus();
 
+        this._timedLoginIndicator = new St.Bin({ style_class: 'login-dialog-timed-login-indicator',
+                                                 scale_x: 0 });
+
+        this.actor.add(this._timedLoginIndicator);
+
         this._message = new St.Label({ opacity: 0,
                                        styleClass: 'login-dialog-message' });
         this._message.clutter_text.line_wrap = true;
@@ -142,6 +148,41 @@ var AuthPrompt = new Lang.Class({
         this._spinner.actor.opacity = 0;
         this._spinner.actor.show();
         this._defaultButtonWell.add_child(this._spinner.actor);
+    },
+
+    showTimedLoginIndicator: function(time) {
+        let hold = new Batch.Hold();
+
+        this.hideTimedLoginIndicator();
+
+        let startTime = GLib.get_monotonic_time();
+
+        this._timedLoginTimeoutId = GLib.timeout_add (GLib.PRIORITY_DEFAULT,
+                                                      33,
+                                                      Lang.bind(this, function() {
+                                                          let currentTime = GLib.get_monotonic_time();
+                                                          let elapsedTime = (currentTime - startTime) / GLib.USEC_PER_SEC;
+                                                          this._timedLoginIndicator.scale_x = elapsedTime / time;
+                                                          if (elapsedTime >= time) {
+                                                              this._timedLoginTimeoutId = 0;
+                                                              hold.release();
+                                                              return GLib.SOURCE_REMOVE;
+                                                          }
+
+                                                          return GLib.SOURCE_CONTINUE;
+                                                      }));
+
+        GLib.Source.set_name_by_id(this._timedLoginTimeoutId, '[gnome-shell] this._timedLoginTimeoutId');
+
+        return hold;
+    },
+
+    hideTimedLoginIndicator: function() {
+        if (this._timedLoginTimeoutId) {
+            GLib.source_remove(this._timedLoginTimeoutId);
+            this._timedLoginTimeoutId = 0;
+        }
+        this._timedLoginIndicator.scale_x = 0.;
     },
 
     _onDestroy: function() {
